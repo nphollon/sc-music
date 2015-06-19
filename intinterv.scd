@@ -1,7 +1,5 @@
-(
-s.reboot;
-t = TempoClock.default;
-)
+s.boot;
+
 (
 SynthDef(\stac, {
 	arg outBus = 0, inBus, sustain = 1, release = 1;
@@ -15,34 +13,63 @@ SynthDef(\chime, {
 	arg freq = 440, outBus = 0, edge = 0.5, fuzz = 0.05;
 	var signal, tone, buzz, scratch;
 	tone = SinOsc.ar(freq, mul: 1 - fuzz - edge);
-	buzz = Saw.ar(freq * 2, mul: edge);
+	buzz = Pulse.ar(freq * 2, mul: edge);
 	scratch = PinkNoise.ar(fuzz);
-	signal = tone + buzz + scratch;
+	signal = (tone + buzz + scratch) * 0.3;
 	Out.ar(outBus, signal);
 }).add;
 
-[~driver, ~sources, ~effects, ~bus].free;
+[~sources, ~effects, ~melodyBus].free;
 
 ~sources = Group.new;
 ~effects = Group.after(~sources);
-~bus = Bus.audio(s, 1);
-~driver = Synth(\chime, [\outBus, ~bus, \edge, 0.2, \fuzz, 0.05], ~sources);
-t.tempo = 4
+~melodyBus = Bus.audio(s, 1);
+~bassBus = Bus.audio(s, 1);
+)
+TempoClock.default.tempo = 11
+
+
+(
+[~driver, ~harmony, ~bass].free;
+~driver = Synth(\chime, [\outBus, ~melodyBus, \edge, 0.5, \fuzz, 0.1], ~sources);
+~harmony = Synth(\chime, [\outBus, ~melodyBus, \edge, 0.5, \fuzz, 0.1], ~sources);
+~bass = Synth(\chime, [\outBus, ~bassBus, \edge, 0.2, \fuzz, 0.0], ~sources)
 )
 
 (
-var midi, dur, melody;
+var notes, bassNotes;
 
-midi = Pseq([60, 60, 72, 71, 67]).asStream;
-dur = Pseq([1, 1, 1, 1, 1]).asStream;
+notes = Pseq([
+	[64, 60, 2], [64, 60, 2], [62, 59, 2], [64, 60, 4], [64, 60, 2], [62, 59, 2], [64, 60, 2],
+	[69, 64, 2], [64, 60, 2], [62, 59, 2], [64, 60, 4], [64, 60, 2], [62, 59, 2], [60, 55, 2]
+	],inf).asStream;
 
-melody = Routine({
-	var delta;
-	while { delta = dur.next; delta.notNil; }
+bassNotes = Pseq([
+	[48, 4], [48, 4], [48, 4], [48, 4],
+	[45, 4], [45, 4], [45, 4], [45, 4],
+	[41, 4], [41, 4], [40, 4], [40, 4],
+	[45, 4], [45, 4], [45, 4], [45, 4],
+],inf).asStream;
+
+g = Routine({
+	var note;
+	while { note = notes.next; note.notNil; }
 	{
-		~driver.set(\freq, midi.next.midicps);
-		Synth(\stac, [\inBus, ~bus, \sustain, 0.2, \release, 0.5], ~effects);
-		delta.yield;
+		~driver.set(\freq, note[0].midicps);
+		~harmony.set(\freq, note[1].midicps);
+		Synth(\stac, [\inBus, ~melodyBus, \sustain, 0.1, \release, 0.05], ~effects);
+		note[2].yield;
 	}
-}).loop(t, quant: 1);
+}).play(TempoClock.default, quant: TempoClock.default.beats + 1);
+
+h = Routine({
+	var note;
+	while { note = bassNotes.next; note.notNil; }
+	{
+		~bass.set(\freq, note[0].midicps);
+		Synth(\stac, [\inBus, ~bassBus, \sustain, 0.5, \release, 0.1], ~effects);
+		note[1].yield;
+	}
+}).play(TempoClock.default, quant: TempoClock.default.beats + 1);
 )
+g.stop; h.stop;
