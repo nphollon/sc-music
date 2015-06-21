@@ -1,4 +1,5 @@
-s.boot;
+s.reboot;
+TempoClock.default.tempo = 11
 
 (
 SynthDef(\stac, {
@@ -26,22 +27,20 @@ SynthDef(\chime, {
 ~melodyBus = Bus.audio(s, 1);
 ~bassBus = Bus.audio(s, 1);
 )
-TempoClock.default.tempo = 11
-
 
 (
-[~driver, ~harmony, ~bass].free;
-~driver = Synth(\chime, [\outBus, ~melodyBus, \edge, 0.5, \fuzz, 0.1], ~sources);
+~driver = Synth(\chime, [\outBus, ~melodyBus, \edge, 0.5, \fuzz, 0.2], ~sources);
 ~harmony = Synth(\chime, [\outBus, ~melodyBus, \edge, 0.5, \fuzz, 0.1], ~sources);
-~bass = Synth(\chime, [\outBus, ~bassBus, \edge, 0.2, \fuzz, 0.0], ~sources)
+~bass = Synth(\chime, [\outBus, ~bassBus, \edge, 0.4, \fuzz, 0.0], ~sources)
 )
+~driver.free; ~harmony.free; ~bass.free;
 
 (
 var notes, bassNotes;
 
 notes = Pseq([
-	[64, 60, 2], [64, 60, 2], [62, 59, 2], [64, 60, 4], [64, 60, 2], [62, 59, 2], [64, 60, 2],
-	[69, 64, 2], [64, 60, 2], [62, 59, 2], [64, 60, 4], [64, 60, 2], [62, 59, 2], [60, 55, 2]
+	[64, 60, 2.67], [64, 60, 1.33], [62, 59, 2], [64, 60, 4], [64, 60, 2], [62, 59, 2], [64, 60, 2],
+	[69, 64, 2.67], [64, 60, 1.33], [62, 59, 2], [64, 60, 4], [64, 60, 2], [62, 59, 2], [60, 55, 2]
 	],inf).asStream;
 
 bassNotes = Pseq([
@@ -60,16 +59,16 @@ g = Routine({
 		Synth(\stac, [\inBus, ~melodyBus, \sustain, 0.1, \release, 0.05], ~effects);
 		note[2].yield;
 	}
-}).play(TempoClock.default, quant: TempoClock.default.beats + 1);
+}).play(TempoClock.default, quant: TempoClock.default.beats);
 
 h = Routine({
 	var note;
 	while { note = bassNotes.next; note.notNil; }
 	{
-		~bass.set(\freq, note[0].midicps);
+		~bass.set(\freq, (note[0]).midicps);
 		Synth(\stac, [\inBus, ~bassBus, \sustain, 0.5, \release, 0.1], ~effects);
 		note[1].yield;
 	}
-}).play(TempoClock.default, quant: TempoClock.default.beats + 1);
+}).play(TempoClock.default, quant: TempoClock.default.beats);
 )
 g.stop; h.stop;
